@@ -1,19 +1,45 @@
+'use client'
+
 import React, { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, ChevronLeft, ChevronRight, CalendarDays, Edit3, Truck, Package, Settings2, Share2, Download, RefreshCw } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
+
+// ---------------------------------------------------------------------------
+// Minimal UI primitives (self-contained so Vercel builds without extra deps)
+// ---------------------------------------------------------------------------
+function cn(...a) { return a.filter(Boolean).join(" "); }
+
+function Card({ className = "", ...p }) { return <div className={cn("rounded-2xl border", className)} {...p} /> }
+function CardHeader({ className = "", ...p }) { return <div className={cn("p-4 border-b", className)} {...p} /> }
+function CardTitle({ className = "", ...p }) { return <h3 className={cn("text-lg font-medium", className)} {...p} /> }
+function CardContent({ className = "", ...p }) { return <div className={cn("p-4", className)} {...p} /> }
+
+function Button({ className = "", variant, ...p }) {
+  const base = "px-3 py-2 rounded-2xl text-sm shadow-sm transition";
+  const style = variant === "outline" ? "border bg-white" : variant === "secondary" ? "bg-gray-100" : "bg-black text-white";
+  return <button className={cn(base, style, className)} {...p} />;
+}
+
+function Input(props) {
+  return <input {...props} className={cn("h-9 w-full rounded-xl border px-3 text-sm", props.className)} />
+}
+
+function Label({ className = "", ...p }) { return <label className={cn("mb-1 block text-sm font-medium", className)} {...p} /> }
+function Badge({ className = "", variant, ...p }) { const style = variant === "outline" ? "border" : "bg-gray-100"; return <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs", style, className)} {...p} /> }
+function Switch(props){ return <input type="checkbox" {...props} /> }
+
+// Simple Select built from native <select>
+function Select({ label, value, onChange, options, placeholder }){
+  return (
+    <div>
+      {label && <Label>{label}</Label>}
+      <select className="h-9 w-full rounded-xl border px-3 text-sm bg-white" value={value} onChange={e => onChange(e.target.value)}>
+        {placeholder && <option value="" disabled>{placeholder}</option>}
+        {options.map(o => <option key={o.key ?? o} value={o.key ?? o}>{o.label ?? o}</option>)}
+      </select>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Data (updated per requirements)
@@ -177,7 +203,7 @@ function runTests() {
     const rental2 = base2 * 1 * days; // 6558.75
     const insurance2 = 6 * 1 * days;  // 540
     const delivery2 = 150 * 1;        // 150
-    const subtotal2 = rental2 + insurance2 + delivery2; // 7248.75 + 0? actually 6558.75+540+150=7248.75
+    const subtotal2 = rental2 + insurance2 + delivery2; // 7248.75
     const discount2 = subtotal2 * 0.07; // 507.4125
     const total2 = subtotal2 - discount2; // 6741.3375
     console.assert(nearly(p2.total, total2), `p2 total ${p2.total} != ${total2}`);
@@ -197,35 +223,6 @@ function runTests() {
   } catch (err) {
     console.error("Tests failed:", err);
   }
-}
-
-// ---------------------------------------------------------------------------
-// UI bits
-// ---------------------------------------------------------------------------
-function StepHeader({ step, total, title, subtitle }) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <div className="text-sm text-muted-foreground">Step {step} of {total}</div>
-        <h2 className="text-2xl font-semibold mt-1">{title}</h2>
-        {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
-      </div>
-      <div className="hidden md:flex items-center gap-2">
-        {Array.from({ length: total }).map((_, i) => (
-          <div key={i} className={`h-2 w-8 rounded-full ${i < step ? "bg-primary" : "bg-muted"}`} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SummaryPill({ label, value }) {
-  return (
-    <div className="flex items-center gap-2 text-sm bg-muted/60 rounded-full px-3 py-1">
-      <Badge variant="secondary" className="rounded-full">{label}</Badge>
-      <span className="text-muted-foreground">{value}</span>
-    </div>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -352,13 +349,7 @@ export default function FleetBuilder() {
                   <StepHeader step={2} total={totalSteps} title="Which industry are you operating in?" />
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                     <div className="md:col-span-2">
-                      <Label>Industry</Label>
-                      <Select value={industry} onValueChange={setIndustry}>
-                        <SelectTrigger><SelectValue placeholder="Select industry" /></SelectTrigger>
-                        <SelectContent>
-                          {INDUSTRIES.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <Select label={null} value={industry} onChange={setIndustry} options={INDUSTRIES} />
                     </div>
                     <div className="flex gap-2 justify-between md:justify-end">
                       <Button variant="outline" onClick={back}><ChevronLeft className="h-4 w-4" />Back</Button>
@@ -373,13 +364,7 @@ export default function FleetBuilder() {
                   <StepHeader step={3} total={totalSteps} title="What is your operational region?" />
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                     <div className="md:col-span-2">
-                      <Label>Region</Label>
-                      <Select value={regionKey} onValueChange={setRegionKey}>
-                        <SelectTrigger><SelectValue placeholder="Select region" /></SelectTrigger>
-                        <SelectContent>
-                          {REGIONS.map(r => <SelectItem key={r.key} value={r.key}>{r.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <Select value={regionKey} onChange={setRegionKey} options={REGIONS} />
                     </div>
                     <div className="flex gap-2 justify-between md:justify-end">
                       <Button variant="outline" onClick={back}><ChevronLeft className="h-4 w-4" />Back</Button>
@@ -395,7 +380,7 @@ export default function FleetBuilder() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                     <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {GOALS.map(g => (
-                        <button key={g.key} onClick={() => setGoal(g.key)} className={`text-left rounded-2xl border p-3 hover:border-primary transition ${goal === g.key ? "border-primary bg-primary/5" : "border-muted"}`}>
+                        <button key={g.key} onClick={() => setGoal(g.key)} className={cn("text-left rounded-2xl border p-3 hover:border-primary transition", goal === g.key ? "border-primary bg-primary/5" : "border-muted") }>
                           <div className="font-medium">{g.label}</div>
                           <div className="text-xs text-muted-foreground">Optimizes suggestions and pricing packages.</div>
                         </button>
@@ -414,7 +399,7 @@ export default function FleetBuilder() {
                   <StepHeader step={5} total={totalSteps} title="Which vehicle types do you need?" subtitle="Pick multiple. You can set quantities next." />
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {VEHICLE_TYPES.map(v => (
-                      <button key={v.key} onClick={() => toggleType(v.key)} className={`rounded-2xl border p-3 flex items-start gap-3 hover:border-primary transition ${selectedTypes.includes(v.key) ? "border-primary bg-primary/5" : "border-muted"}`}>
+                      <button key={v.key} onClick={() => toggleType(v.key)} className={cn("rounded-2xl border p-3 flex items-start gap-3 hover:border-primary transition", selectedTypes.includes(v.key) ? "border-primary bg-primary/5" : "border-muted")}>
                         <div className="mt-0.5">{v.icon}</div>
                         <div>
                           <div className="font-medium">{v.label}</div>
@@ -487,7 +472,7 @@ export default function FleetBuilder() {
                   <StepHeader step={7} total={totalSteps} title="What is your preferred service level?" />
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {SERVICE_LEVELS.map(s => (
-                      <button key={s.key} onClick={() => setServiceKey(s.key)} className={`text-left rounded-2xl border p-4 hover:border-primary transition ${serviceKey === s.key ? "border-primary bg-primary/5" : "border-muted"}`}>
+                      <button key={s.key} onClick={() => setServiceKey(s.key)} className={cn("text-left rounded-2xl border p-4 hover:border-primary transition", serviceKey === s.key ? "border-primary bg-primary/5" : "border-muted")}>
                         <div className="font-medium">{s.label}</div>
                         <div className="text-xs text-muted-foreground">{s.desc}</div>
                         <div className="text-xs mt-2">Multiplier: <span className="font-mono">{s.multiplier}x</span></div>
@@ -506,7 +491,7 @@ export default function FleetBuilder() {
                   <StepHeader step={8} total={totalSteps} title="What insurance type do you need?" />
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {INSURANCE.map(i => (
-                      <button key={i.key} onClick={() => setInsuranceKey(i.key)} className={`text-left rounded-2xl border p-4 hover:border-primary transition ${insuranceKey === i.key ? "border-primary bg-primary/5" : "border-muted"}`}>
+                      <button key={i.key} onClick={() => setInsuranceKey(i.key)} className={cn("text-left rounded-2xl border p-4 hover:border-primary transition", insuranceKey === i.key ? "border-primary bg-primary/5" : "border-muted")}>
                         <div className="font-medium">{i.label}</div>
                         <div className="text-xs text-muted-foreground">{i.perDay ? `${eur(i.perDay)}/asset/day` : "Custom cover"}</div>
                       </button>
@@ -568,31 +553,13 @@ export default function FleetBuilder() {
                 <Input type="date" value={endDate} min={startDate} onChange={e => setEndDate(e.target.value)} />
               </div>
               <div>
-                <Label>Delivery</Label>
-                <Select value={deliveryKey} onValueChange={setDeliveryKey}>
-                  <SelectTrigger><SelectValue placeholder="Select delivery" /></SelectTrigger>
-                  <SelectContent>
-                    {DELIVERY.map(d => <SelectItem key={d.key} value={d.key}>{d.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Select label="Delivery" value={deliveryKey} onChange={setDeliveryKey} options={DELIVERY} />
               </div>
               <div>
-                <Label>Service level</Label>
-                <Select value={serviceKey} onValueChange={setServiceKey}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {SERVICE_LEVELS.map(s => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Select label="Service level" value={serviceKey} onChange={setServiceKey} options={SERVICE_LEVELS} />
               </div>
               <div>
-                <Label>Insurance</Label>
-                <Select value={insuranceKey} onValueChange={setInsuranceKey}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {INSURANCE.map(i => <SelectItem key={i.key} value={i.key}>{i.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Select label="Insurance" value={insuranceKey} onChange={setInsuranceKey} options={INSURANCE} />
               </div>
             </div>
 
@@ -675,21 +642,11 @@ export default function FleetBuilder() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     <div>
                       <Label>Delivery</Label>
-                      <Select value={deliveryKey} onValueChange={setDeliveryKey}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {DELIVERY.map(d => <SelectItem key={d.key} value={d.key}>{d.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <Select value={deliveryKey} onChange={setDeliveryKey} options={DELIVERY} />
                     </div>
                     <div>
                       <Label>Region</Label>
-                      <Select value={regionKey} onValueChange={setRegionKey}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {REGIONS.map(r => <SelectItem key={r.key} value={r.key}>{r.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <Select value={regionKey} onChange={setRegionKey} options={REGIONS} />
                     </div>
                   </div>
                 </div>
@@ -699,21 +656,11 @@ export default function FleetBuilder() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     <div>
                       <Label>Service level</Label>
-                      <Select value={serviceKey} onValueChange={setServiceKey}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {SERVICE_LEVELS.map(s => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <Select value={serviceKey} onChange={setServiceKey} options={SERVICE_LEVELS} />
                     </div>
                     <div>
                       <Label>Insurance</Label>
-                      <Select value={insuranceKey} onValueChange={setInsuranceKey}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {INSURANCE.map(i => <SelectItem key={i.key} value={i.key}>{i.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <Select value={insuranceKey} onChange={setInsuranceKey} options={INSURANCE} />
                     </div>
                   </div>
                 </div>
@@ -755,11 +702,11 @@ export default function FleetBuilder() {
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Badge variant="secondary" className="rounded-full">{REGIONS.find(r => r.key === regionKey)?.label}</Badge>
-                  <Badge variant="secondary" className="rounded-full">{SERVICE_LEVELS.find(s => s.key === serviceKey)?.label} service</Badge>
-                  <Badge variant="secondary" className="rounded-full">{INSURANCE.find(i => i.key === insuranceKey)?.label} insurance</Badge>
-                  <Badge variant="secondary" className="rounded-full">{price.totalDays} days</Badge>
-                  <Badge variant="secondary" className="rounded-full">{Object.values(vehicles).reduce((a,b)=>a+b,0)} assets</Badge>
+                  <Badge className="rounded-full">{REGIONS.find(r => r.key === regionKey)?.label}</Badge>
+                  <Badge className="rounded-full">{SERVICE_LEVELS.find(s => s.key === serviceKey)?.label} service</Badge>
+                  <Badge className="rounded-full">{INSURANCE.find(i => i.key === insuranceKey)?.label} insurance</Badge>
+                  <Badge className="rounded-full">{price.totalDays} days</Badge>
+                  <Badge className="rounded-full">{Object.values(vehicles).reduce((a,b)=>a+b,0)} assets</Badge>
                 </div>
                 <div className="mt-4 flex gap-2">
                   <Button className="gap-2"><Check className="h-4 w-4" />Save quote</Button>
@@ -775,15 +722,4 @@ export default function FleetBuilder() {
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground space-y-2">
               <p>When you save this quote, it appears in <span className="text-foreground font-medium">My Fleet</span> as a draft. You can share it or convert it to a booking later.</p>
-              <p>You can always revisit this build, tweak options, or duplicate it for another region or season.</p>
-              <div className="grid grid-cols-1 gap-2">
-                <label className="flex items-center gap-2 text-foreground"><Switch />Receive availability updates by email</label>
-                <label className="flex items-center gap-2 text-foreground"><Switch defaultChecked />Lock indicative pricing for 7 days</label>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </div>
-  );
-}
+             
